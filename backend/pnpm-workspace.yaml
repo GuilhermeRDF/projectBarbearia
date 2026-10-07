@@ -1,0 +1,9 @@
+allowBuilds:
+  '@prisma/client': false
+  '@prisma/engines': false
+  esbuild: true
+  msgpackr-extract: false
+  prisma: false
+  workerd: false
+minimumReleaseAgeExclude:
+  - '@types/node@22.20.3'

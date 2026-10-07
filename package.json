@@ -1,0 +1,18 @@
+{
+  "name": "trato-fino",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+  "db:generate": "pnpm --dir backend db:generate",
+  "db:push": "pnpm --dir backend db:push",
+  "db:seed": "pnpm --dir backend db:seed",
+  "db:setup": "node scripts/setup-postgres.mjs",
+  "backup": "node scripts/backup-postgres.mjs",
+  "restore": "node scripts/restore-postgres.mjs",
+  "backend:dev": "pnpm --dir backend dev",
+  "frontend:dev": "pnpm --dir frontend dev",
+  "backend:build": "pnpm --dir backend build",
+  "frontend:build": "pnpm --dir frontend build",
+  "dev": "node scripts/dev.mjs"
+}
+}

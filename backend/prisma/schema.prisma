@@ -1,0 +1,568 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Barbearia {
+  id           String   @id @default(uuid())
+  nome         String
+  slug         String   @unique
+  telefone     String?
+  endereco     String?
+  logoUrl      String?
+  criadoEm     DateTime @default(now())
+
+  usuarios     Usuario[]
+  servicos     Servico[]
+  barbeiros    PerfilFuncionario[]
+  agendamentos Agendamento[]
+  comandas     Comanda[]
+}
+
+model Usuario {
+  id                    String   @id @default(uuid())
+  barbeariaId           String?
+  role                  String   @default("CLIENTE")
+  estaAtivo             Boolean  @default(true)
+  eEquipe               Boolean  @default(false)
+  eSuperusuario         Boolean  @default(false)
+  quantidadeFalhasLogin Int      @default(0)
+  bloqueadoAte          DateTime?
+  senhaAlteradaEm       DateTime?
+  ultimoLoginEm         DateTime?
+  excluidoEm            DateTime?
+  anonimizadoEm         DateTime?
+  criadoEm              DateTime @default(now())
+  atualizadoEm          DateTime @updatedAt
+
+  barbearia             Barbearia? @relation(fields: [barbeariaId], references: [id], onDelete: SetNull)
+  credencial            CredencialUsuario?
+  dadosPessoais         DadosPessoaisUsuario?
+  perfis                UsuarioPerfil[]
+  perfisAtribuidos      UsuarioPerfil[] @relation("AtribuidorPerfil")
+  perfilCliente         PerfilCliente?
+  perfilFuncionario     PerfilFuncionario?
+  sessoes               SessaoAutenticacao[]
+  tokensRedefinicao     TokenRedefinicaoSenha[]
+  tentativasLogin       TentativaLogin[]
+  agendamentosCliente   Agendamento[] @relation("ClienteAgendamento")
+  agendamentosCriados   Agendamento[] @relation("CriadorAgendamento")
+  observacoes           ObservacaoAgendamento[]
+  notificacoes          Notificacao[]
+  logsAtor               LogAuditoria[] @relation("AtorAuditoria")
+  logsTitular            LogAcessoDadoSensivel[] @relation("TitularDadoSensivel")
+  logsAcessoAtor         LogAcessoDadoSensivel[] @relation("AtorDadoSensivel")
+  consentimentos         ConsentimentoPrivacidade[]
+  solicitacoes           SolicitacaoPrivacidade[] @relation("TitularSolicitacao")
+  solicitacoesTratadas   SolicitacaoPrivacidade[] @relation("TratadorSolicitacao")
+  pagamentos             Pagamento[]
+  avaliacoesCliente      Avaliacao[] @relation("ClienteAvaliacao")
+  historicosAlterados    HistoricoAgendamento[] @relation("AlteradoPorHistorico")
+  bloqueiosCriados       BloqueioAgenda[] @relation("CriadorBloqueio")
+  comandas               Comanda[]
+
+  @@index([barbeariaId])
+  @@index([estaAtivo])
+}
+
+model CredencialUsuario {
+  id              String   @id @default(uuid())
+  usuarioId       String   @unique
+  hashSenha       String
+  versaoSenha     Int      @default(1)
+  mfaHabilitado   Boolean  @default(false)
+  senhaTemporaria Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+model DadosPessoaisUsuario {
+  id                       String   @id @default(uuid())
+  usuarioId                String   @unique
+  nomeCompletoCriptografado String
+  cpfCriptografado         String
+  hashBuscaCpf             String   @unique
+  emailCriptografado       String
+  hashBuscaEmail           String   @unique
+  telefoneCriptografado    String?
+  hashBuscaTelefone        String?
+  versaoChaveCriptografia  Int      @default(1)
+  criadoEm                 DateTime @default(now())
+  atualizadoEm             DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+model PerfilAcesso {
+  id          String @id @default(uuid())
+  codigo      String @unique
+  nome        String
+  descricao   String?
+  eSistema    Boolean @default(true)
+  usuarios    UsuarioPerfil[]
+  permissoes  PerfilPermissao[]
+}
+
+model Permissao {
+  id          String @id @default(uuid())
+  codigo      String @unique
+  descricao   String?
+  perfis      PerfilPermissao[]
+}
+
+model UsuarioPerfil {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  perfilId    String
+  atribuidoPor String?
+  atribuidoEm DateTime @default(now())
+
+  usuario      Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  perfil       PerfilAcesso @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  atribuidor   Usuario? @relation("AtribuidorPerfil", fields: [atribuidoPor], references: [id], onDelete: SetNull)
+
+  @@unique([usuarioId, perfilId])
+  @@index([usuarioId])
+  @@index([perfilId])
+}
+
+model PerfilPermissao {
+  id          String @id @default(uuid())
+  perfilId    String
+  permissaoId String
+
+  perfil      PerfilAcesso @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  permissao   Permissao @relation(fields: [permissaoId], references: [id], onDelete: Cascade)
+
+  @@unique([perfilId, permissaoId])
+}
+
+model PerfilCliente {
+  id                    String @id @default(uuid())
+  usuarioId             String @unique
+  observacoesOperacionais String?
+  criadoEm              DateTime @default(now())
+  atualizadoEm          DateTime @updatedAt
+  usuario               Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+model PerfilFuncionario {
+  id                    String @id @default(uuid())
+  usuarioId             String @unique
+  barbeariaId           String
+  nomeExibicao          String?
+  bio                   String?
+  urlFoto               String?
+  dataAdmissao          DateTime?
+  estaDisponivel        Boolean @default(true)
+  especialidade         String?
+  horarioInicio         String @default("08:00")
+  horarioFim            String @default("18:00")
+  inicioAlmoco          String?
+  fimAlmoco             String?
+  comissaoPorcent       Float @default(30)
+  criadoEm              DateTime @default(now())
+  atualizadoEm          DateTime @updatedAt
+
+  usuario               Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  barbearia             Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  servicos              ServicoBarbeiro[]
+  horarios              HorarioTrabalho[]
+  bloqueios             BloqueioAgenda[]
+  agendamentos          Agendamento[]
+  itensComanda          ItemComanda[]
+  avaliacoes            Avaliacao[]
+  historicosBarbeiroAnterior HistoricoAgendamento[] @relation("BarbeiroAnterior")
+  historicosBarbeiroNovo HistoricoAgendamento[] @relation("BarbeiroNovo")
+
+  @@index([barbeariaId])
+}
+
+model SessaoAutenticacao {
+  id                String   @id @default(uuid())
+  usuarioId         String
+  hashToken         String   @unique
+  hashIdDispositivo String?
+  enderecoIp        String?
+  agenteUsuario     String?
+  emitidoEm         DateTime @default(now())
+  expiraEm          DateTime
+  revogadoEm        DateTime?
+  motivoRevogacao   String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+}
+
+model TokenRedefinicaoSenha {
+  id             String   @id @default(uuid())
+  usuarioId      String
+  hashToken      String   @unique
+  expiraEm       DateTime
+  usadoEm        DateTime?
+  ipSolicitacao  String?
+  criadoEm       DateTime @default(now())
+  usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+}
+
+model TentativaLogin {
+  id                    String   @id @default(uuid())
+  usuarioId             String?
+  hashBuscaIdentificador String
+  foiBemSucedida        Boolean
+  enderecoIp            String?
+  agenteUsuario         String?
+  criadoEm              DateTime @default(now())
+  usuario               Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([hashBuscaIdentificador])
+  @@index([criadoEm])
+}
+
+model Servico {
+  id             String   @id @default(uuid())
+  barbeariaId    String
+  nome           String
+  descricao      String?
+  preco          Float
+  duracaoMinutos Int
+  estaAtivo      Boolean @default(true)
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  barbearia      Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiros      ServicoBarbeiro[]
+  agendamentos   Agendamento[]
+  servicosAgenda ServicoAgendamento[]
+  itensComanda   ItemComanda[]
+
+  @@index([estaAtivo])
+  @@index([nome])
+  @@index([barbeariaId])
+}
+
+model ServicoBarbeiro {
+  id                       String @id @default(uuid())
+  barbeiroId               String
+  servicoId                String
+  precoPersonalizado       Float?
+  duracaoPersonalizadaMinutos Int?
+  estaAtivo                Boolean @default(true)
+
+  barbeiro PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  servico  Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+
+  @@unique([barbeiroId, servicoId])
+}
+
+model HorarioTrabalho {
+  id           String @id @default(uuid())
+  barbeiroId   String
+  diaSemana    Int
+  horaInicio   String
+  horaFim      String
+  validoDesde  DateTime?
+  validoAte    DateTime?
+  estaAtivo    Boolean @default(true)
+  barbeiro     PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+
+  @@index([barbeiroId, diaSemana])
+}
+
+model BloqueioAgenda {
+  id          String @id @default(uuid())
+  barbeiroId  String
+  inicioEm    DateTime
+  fimEm       DateTime
+  motivo      String?
+  criadoPor   String
+  criadoEm    DateTime @default(now())
+  barbeiro    PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  criador     Usuario @relation("CriadorBloqueio", fields: [criadoPor], references: [id], onDelete: Restrict)
+
+  @@index([barbeiroId, inicioEm, fimEm])
+}
+
+model Agendamento {
+  id                 String @id @default(uuid())
+  barbeariaId        String
+  codigoConfirmacao  String @unique @default(uuid())
+  usuarioId          String
+  barbeiroId         String
+  servicoId          String
+  inicioAgendado     DateTime
+  fimAgendado        DateTime
+  dataHora           DateTime
+  status             String @default("PENDENTE")
+  origem             String @default("TERMINAL")
+  criadoPor          String
+  confirmadoEm       DateTime?
+  canceladoEm        DateTime?
+  motivoCancelamento String?
+  observacaoLegado   String?
+  versaoRegistro     Int @default(1)
+  criadoEm           DateTime @default(now())
+  atualizadoEm       DateTime @updatedAt
+
+  barbearia          Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  usuario            Usuario @relation("ClienteAgendamento", fields: [usuarioId], references: [id], onDelete: Restrict)
+  barbeiro           PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Restrict)
+  servico            Servico @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+  criador             Usuario @relation("CriadorAgendamento", fields: [criadoPor], references: [id], onDelete: Restrict)
+  servicos           ServicoAgendamento[]
+  historico          HistoricoAgendamento[]
+  observacoes        ObservacaoAgendamento[]
+  notificacoes       Notificacao[]
+  pagamentos         Pagamento[]
+  avaliacao          Avaliacao?
+  comanda            Comanda?
+
+  @@index([barbeariaId])
+  @@index([usuarioId])
+  @@index([barbeiroId])
+  @@index([status])
+  @@index([inicioAgendado])
+  @@index([barbeiroId, inicioAgendado, fimAgendado])
+}
+
+model ServicoAgendamento {
+  id              String @id @default(uuid())
+  agendamentoId   String
+  servicoId       String
+  preco           Float
+  duracaoMinutos  Int
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  servico     Servico @relation(fields: [servicoId], references: [id], onDelete: Restrict)
+
+  @@unique([agendamentoId, servicoId])
+}
+
+model HistoricoAgendamento {
+  id                 String @id @default(uuid())
+  agendamentoId      String
+  alteradoPor        String
+  acao               String
+  inicioAnterior     DateTime?
+  novoInicio         DateTime?
+  barbeiroAnteriorId String?
+  novoBarbeiroId     String?
+  statusAnterior     String?
+  novoStatus         String?
+  motivo             String?
+  criadoEm           DateTime @default(now())
+
+  agendamento         Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  alteradoPorUsuario  Usuario @relation("AlteradoPorHistorico", fields: [alteradoPor], references: [id], onDelete: Restrict)
+  barbeiroAnterior    PerfilFuncionario? @relation("BarbeiroAnterior", fields: [barbeiroAnteriorId], references: [id], onDelete: SetNull)
+  barbeiroNovo        PerfilFuncionario? @relation("BarbeiroNovo", fields: [novoBarbeiroId], references: [id], onDelete: SetNull)
+
+  @@index([agendamentoId])
+  @@index([criadoEm])
+}
+
+model ObservacaoAgendamento {
+  id                       String @id @default(uuid())
+  agendamentoId            String
+  autorId                  String
+  observacaoCriptografada  String
+  versaoChaveCriptografia  Int @default(1)
+  criadoEm                 DateTime @default(now())
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  autor       Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+}
+
+model Notificacao {
+  id                       String @id @default(uuid())
+  usuarioId                String
+  agendamentoId            String?
+  canal                    String
+  tipo                     String
+  provedor                 String?
+  idMensagemProvedor       String?
+  status                   String @default("PENDENTE")
+  conteudoCriptografado    String?
+  respostaCriptografada    String?
+  versaoChaveCriptografia  Int @default(1)
+  enviadoEm                DateTime?
+  entregueEm               DateTime?
+  lidoEm                   DateTime?
+  falhouEm                 DateTime?
+  respondidoEm             DateTime?
+  criadoEm                 DateTime @default(now())
+
+  usuario      Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  agendamento  Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([agendamentoId])
+  @@index([status])
+  @@index([criadoEm])
+}
+
+model LogAuditoria {
+  id                 String @id @default(uuid())
+  usuarioAtorId      String?
+  tipoEvento         String
+  tipoEntidade       String
+  entidadeId         String?
+  resultado          String
+  enderecoIp         String?
+  agenteUsuario      String?
+  requisicaoId       String?
+  metadados          String?
+  hashEventoAnterior String?
+  hashEvento         String?
+  criadoEm           DateTime @default(now())
+
+  ator Usuario? @relation("AtorAuditoria", fields: [usuarioAtorId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioAtorId])
+  @@index([tipoEntidade])
+  @@index([entidadeId])
+  @@index([tipoEvento])
+  @@index([criadoEm])
+  @@index([requisicaoId])
+}
+
+model LogAcessoDadoSensivel {
+  id              String @id @default(uuid())
+  usuarioAtorId   String
+  usuarioTitularId String
+  categoriaDado   String
+  finalidade      String
+  acao            String
+  requisicaoId    String?
+  criadoEm        DateTime @default(now())
+
+  ator     Usuario @relation("AtorDadoSensivel", fields: [usuarioAtorId], references: [id], onDelete: Restrict)
+  titular  Usuario @relation("TitularDadoSensivel", fields: [usuarioTitularId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioAtorId])
+  @@index([usuarioTitularId])
+  @@index([criadoEm])
+}
+
+model ConsentimentoPrivacidade {
+  id              String @id @default(uuid())
+  usuarioId       String
+  codigoFinalidade String
+  versao          String
+  concedido       Boolean
+  registradoEm    DateTime @default(now())
+  revogadoEm     DateTime?
+  evidencia       String?
+  usuario         Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, codigoFinalidade, versao])
+}
+
+model SolicitacaoPrivacidade {
+  id           String @id @default(uuid())
+  usuarioId    String
+  tipo         String
+  status       String @default("ABERTA")
+  abertoEm     DateTime @default(now())
+  prazoEm      DateTime?
+  concluidoEm  DateTime?
+  tratadoPor   String?
+  observacoes  String?
+
+  usuario      Usuario @relation("TitularSolicitacao", fields: [usuarioId], references: [id], onDelete: Cascade)
+  tratador     Usuario? @relation("TratadorSolicitacao", fields: [tratadoPor], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([status])
+  @@index([abertoEm])
+}
+
+model PoliticaRetencaoDados {
+  id                     String @id @default(uuid())
+  categoriaDado          String @unique
+  diasRetencao           Int?
+  baseLegal              String?
+  anonimizarAposExpiracao Boolean @default(true)
+  descricao              String?
+  atualizadoEm           DateTime @updatedAt
+}
+
+model Pagamento {
+  id                    String @id @default(uuid())
+  agendamentoId         String?
+  clienteId             String
+  valor                 Float
+  status                String @default("PENDENTE")
+  metodo                String?
+  provedor              String?
+  idTransacaoProvedor   String?
+  pagoEm                DateTime?
+  criadoEm              DateTime @default(now())
+  atualizadoEm          DateTime @updatedAt
+
+  agendamento Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+  cliente     Usuario @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId])
+  @@index([agendamentoId])
+}
+
+model Avaliacao {
+  id            String @id @default(uuid())
+  agendamentoId String @unique
+  clienteId     String
+  barbeiroId    String
+  nota          Int
+  comentario    String?
+  criadoEm      DateTime @default(now())
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  cliente     Usuario @relation("ClienteAvaliacao", fields: [clienteId], references: [id], onDelete: Restrict)
+  barbeiro    PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId])
+  @@index([barbeiroId])
+}
+
+model Comanda {
+  id            String   @id @default(uuid())
+  barbeariaId   String
+  usuarioId     String
+  agendamentoId String? @unique
+  valorTotal    Float    @default(0)
+  status        String   @default("ABERTA")
+  formaPagto    String?
+  criadoEm      DateTime @default(now())
+
+  barbearia     Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  usuario       Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+  itens         ItemComanda[]
+
+  @@index([barbeariaId])
+}
+
+model ItemComanda {
+  id         String @id @default(uuid())
+  comandaId  String
+  servicoId  String?
+  barbeiroId String?
+  preco      Float
+  comissao   Float
+
+  comanda    Comanda @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  servico    Servico? @relation(fields: [servicoId], references: [id], onDelete: SetNull)
+  barbeiro   PerfilFuncionario? @relation(fields: [barbeiroId], references: [id], onDelete: SetNull)
+}

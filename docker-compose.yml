@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: trato-fino-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trato_fino}
+      POSTGRES_USER: ${POSTGRES_USER:-trato_fino_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env da raiz}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - trato_fino_pgdata:/var/lib/postgresql/data
+      - ./database:/restore:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  trato_fino_pgdata:
+    name: trato_fino_pgdata
