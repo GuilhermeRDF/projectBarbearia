@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-  "db:generate": "pnpm --dir backend db:generate",
-  "db:push": "pnpm --dir backend db:push",
-  "db:seed": "pnpm --dir backend db:seed",
-  "db:setup": "node scripts/setup-postgres.mjs",
-  "backup": "node scripts/backup-postgres.mjs",
-  "restore": "node scripts/restore-postgres.mjs",
-  "backend:dev": "pnpm --dir backend dev",
-  "frontend:dev": "pnpm --dir frontend dev",
-  "backend:build": "pnpm --dir backend build",
-  "frontend:build": "pnpm --dir frontend build",
-  "dev": "node scripts/dev.mjs"
-}
+    "dev": "node --env-file=.env scripts/dev.mjs",
+    "api:dev": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/api dev",
+    "cli:dev": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/cli dev",
+    "api:build": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/api build",
+    "cli:build": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/cli build",
+    "api:test": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/api test",
+    "db:generate": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/api db:generate",
+    "db:push": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/api db:push",
+    "db:seed": "node --env-file=.env scripts/run-pnpm.mjs --dir apps/api db:seed",
+    "db:setup": "node --env-file=.env scripts/setup-postgres.mjs",
+    "backup": "node --env-file=.env scripts/backup-postgres.mjs",
+    "restore": "node --env-file=.env scripts/restore-postgres.mjs"
+  }
 }

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { ROOT_DIR } from './load-env.mjs';
 
 const isWindows = process.platform === 'win32';
 
@@ -10,7 +11,7 @@ const env = { ...process.env };
 function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: process.cwd(),
+      cwd: ROOT_DIR,
       stdio: options.stdio ?? 'inherit',
       env,
       shell: isWindows,
@@ -28,7 +29,7 @@ function runCommand(command, args, options = {}) {
 function execCommand(command, args, input = '') {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      cwd: process.cwd(),
+      cwd: ROOT_DIR,
       stdio: ['pipe', 'pipe', 'pipe'],
       env,
       shell: isWindows,
@@ -172,8 +173,8 @@ async function main() {
   const generateCode = await runCommand(
     pnpmCommand,
     [
-      '--filter',
-      'backend',
+      '--dir',
+      'apps/api',
       'exec',
       'prisma',
       'generate',
@@ -189,8 +190,8 @@ async function main() {
   const schemaCode = await runCommand(
     pnpmCommand,
     [
-      '--filter',
-      'backend',
+      '--dir',
+      'apps/api',
       'exec',
       'prisma',
       'db',
@@ -217,8 +218,8 @@ async function main() {
   const seedCode = await runCommand(
     pnpmCommand,
     [
-      '--filter',
-      'backend',
+      '--dir',
+      'apps/api',
       'db:seed',
     ],
   );

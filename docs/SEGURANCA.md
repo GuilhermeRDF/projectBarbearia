@@ -20,7 +20,7 @@ Senhas temporárias seguem o padrão `TF-` + 16 caracteres aleatórios gerados p
 
 ## Redefinição
 
-O cliente pode solicitar redefinição pelo frontend. A solicitação usa token aleatório armazenado somente como hash e expira em 30 minutos. Como a instalação local não depende de um provedor de e-mail, o administrador conclui o fluxo pelo menu de solicitações, gerando uma senha temporária. Ao gerar a nova senha, tokens de redefinição pendentes e sessões antigas são invalidados.
+O cliente pode solicitar redefinição pela CLI. A solicitação usa token aleatório armazenado somente como hash e expira em 30 minutos. Como a instalação local não depende de um provedor de e-mail, o administrador conclui o fluxo pelo menu de solicitações, gerando uma senha temporária. Ao gerar a nova senha, tokens de redefinição pendentes e sessões antigas são invalidados.
 
 ## PII e acesso administrativo
 

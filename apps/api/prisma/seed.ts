@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../src/config/load-env';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';

@@ -2,17 +2,27 @@
 
 Aplicação local de gerenciamento de barbearia, composta por:
 
-* Backend em **Node.js + Express**
+* API REST em **Node.js + Express**
 * ORM **Prisma**
 * Banco de dados **PostgreSQL 16**
 * PostgreSQL executado em **Docker**
-* Frontend em **terminal/CLI**
+* Aplicação de terminal (**CLI**, sem frontend web)
 * Autenticação com **bcrypt**
 * Proteção de dados pessoais com **AES-256-GCM**
 * Blind index com **HMAC-SHA-256**
 * Controle de acesso com **ADMIN** e **CLIENTE**
 * Auditoria e registro de acesso a dados sensíveis
 * Sistema de **backup e restauração do PostgreSQL**
+
+---
+
+## Arquitetura atual
+
+A API está em `apps/api/` e a CLI terminal em `apps/cli/`. A CLI comunica-se com a API HTTP e não acessa o banco diretamente. O schema Prisma e o histórico de migrações estão em `apps/api/prisma/`; SQL, dumps e backups continuam em seus diretórios originais.
+
+Comandos atuais: `pnpm dev`, `pnpm api:dev`, `pnpm cli:dev`, `pnpm api:build`, `pnpm cli:build`, `pnpm db:generate`, `pnpm db:push`, `pnpm db:seed`, `pnpm db:setup`, `pnpm backup` e `pnpm restore`. `pnpm restore` substitui dados existentes e deve ser tratado como operação destrutiva.
+
+A migração SQL legada preservada define tabelas e IDs diferentes do schema Prisma atual. Não aplique migrações nem `db push` em banco importante sem revisar essa divergência e verificar backups.
 
 ---
 
@@ -25,7 +35,7 @@ Antes de instalar o sistema em outro computador, instale:
 Versão recomendada:
 
 ```text
-Node.js 20+
+Node.js 20.12+
 ```
 
 Verifique:
@@ -93,20 +103,20 @@ O projeto foi estruturado para que a pasta inteira possa ser compactada em ZIP e
 O ZIP deve conter:
 
 ```text
-projectBarbearia/
-├── backend/
-│   └── .env
-├── database/
+trato-fino/
+├── apps/
+│   ├── api/                 # API Express + Prisma
+│   └── cli/                 # interface terminal/CLI
+├── database/                # SQL de inicialização/recuperação preservado
+├── backups/                 # dumps preservados
 ├── docs/
-├── frontend/
 ├── scripts/
-├── backups/
-│   └── trato_fino_YYYY-MM-DD_HH-MM-SS.dump
+├── .env                     # única configuração runtime local
+├── .env.example             # modelo sanitizado
 ├── docker-compose.yml
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
-├── .env
 └── README.md
 ```
 
@@ -121,14 +131,14 @@ contém o estado atual do banco PostgreSQL no momento em que o backup foi criado
 O arquivo:
 
 ```text
-backend/.env
+.env
 ```
 
 também é transferido junto com o projeto.
 
 Isso é importante porque as chaves utilizadas para criptografar os dados pessoais precisam permanecer as mesmas.
 
-> **IMPORTANTE:** o ZIP contém informações sensíveis. Não publique o ZIP, o `backend/.env` ou os arquivos `.dump` em repositórios públicos.
+> **IMPORTANTE:** o ZIP contém informações sensíveis. Não publique o ZIP, o `.env` ou os arquivos `.dump` em repositórios públicos.
 
 ---
 
@@ -157,12 +167,15 @@ dir
 Devem existir arquivos/pastas semelhantes a:
 
 ```text
-backend
-backups
-database
-docs
-frontend
-scripts
+apps/
+  api/
+  cli/
+backups/
+database/
+docs/
+scripts/
+.env
+.env.example
 docker-compose.yml
 package.json
 pnpm-lock.yaml
@@ -174,57 +187,17 @@ README.md
 
 # 4. Variáveis de ambiente
 
-O arquivo principal do backend fica em:
+A única configuração runtime é o arquivo **`.env` na raiz do repositório**. `.env.example` é apenas um modelo sanitizado e não deve conter credenciais reais. Os comandos do projeto carregam a configuração da raiz mesmo quando executados por scripts localizados em outras pastas.
 
-```text
-backend\.env
-```
+As variáveis consumidas pelo projeto são `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET`, `PII_ENCRYPTION_KEY`, `PII_BLIND_INDEX_KEY`, `PII_KEY_VERSION`, `PORT` e `API_URL`. Seus valores devem ser configurados localmente e nunca copiados para documentação ou mensagens de log.
 
-Ele é transferido junto com o ZIP.
+`DATABASE_URL` deve apontar para o banco configurado no Docker Compose; usuário, senha e nome do banco precisam corresponder a `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`.
 
-As principais variáveis são:
+## Importante — chaves criptográficas
 
-```text
-DATABASE_URL
-JWT_SECRET
-PII_ENCRYPTION_KEY
-PII_BLIND_INDEX_KEY
-PII_KEY_VERSION
-PORT
-```
+Não altere `PII_ENCRYPTION_KEY` nem `PII_BLIND_INDEX_KEY` sem um plano de rotação. A consolidação encontrou dois valores diferentes para `PII_ENCRYPTION_KEY`; o valor anteriormente usado pela API permaneceu como ativo e o valor original da raiz foi preservado como `PII_ENCRYPTION_KEY_ROOT_CONFLICT`, não consumido pela aplicação. A validação dessa chave ativa contra um ciphertext de referência do SQL **falhou**. Portanto, a compatibilidade criptográfica ainda requer investigação manual segura. Não descarte o valor conflitante nem restaure o banco para tentar corrigir o problema.
 
-Exemplo estrutural:
-
-```env
-DATABASE_URL=postgresql://trato_fino_app:SUA_SENHA@localhost:5432/trato_fino?schema=public
-
-JWT_SECRET="SUA_CHAVE_JWT"
-
-PII_ENCRYPTION_KEY="SUA_CHAVE_AES_256_EM_BASE64URL"
-
-PII_BLIND_INDEX_KEY="SUA_CHAVE_HMAC_EM_BASE64URL"
-
-PII_KEY_VERSION="1"
-
-PORT=3000
-```
-
-No cenário de transferência por ZIP, **não é necessário criar um novo `backend/.env` se o arquivo existente foi transferido junto com o projeto**.
-
-## Importante
-
-As chaves:
-
-```text
-PII_ENCRYPTION_KEY
-PII_BLIND_INDEX_KEY
-```
-
-não devem ser alteradas quando já existem dados criptografados.
-
-Os dados pessoais existentes foram criptografados utilizando essas chaves.
-
-Se as chaves forem alteradas, os dados antigos poderão deixar de ser descriptografáveis.
+Nunca publique `.env`, backups, dumps ou ZIPs que os contenham.
 
 ---
 
@@ -280,7 +253,7 @@ utilize o seguinte fluxo:
        ↓
 7. pnpm restore
        ↓
-8. npm run dev
+8. pnpm dev
        ↓
 9. Trato Fino CLI
 ```
@@ -391,7 +364,7 @@ Utilize:
 pnpm install
 docker compose up -d
 pnpm restore
-npm run dev
+pnpm dev
 ```
 
 O backup `.dump` é o responsável por recuperar o estado atual do banco.
@@ -417,7 +390,7 @@ docker compose up -d
 Depois:
 
 ```powershell
-npm run dev
+pnpm dev
 ```
 
 O sistema iniciará:
@@ -674,7 +647,7 @@ O seed atual é idempotente.
 Execute manualmente somente quando necessário:
 
 ```powershell
-pnpm --filter backend exec prisma db seed
+pnpm db:seed
 ```
 
 O seed verifica os registros existentes e cria somente o que estiver faltando.
@@ -713,19 +686,19 @@ Em uma migração que possui um backup `.dump` atual, **prefira `pnpm restore` p
 ### Gerar Prisma Client
 
 ```powershell
-pnpm --filter backend exec prisma generate
+pnpm db:generate
 ```
 
 ### Aplicar/verificar schema
 
 ```powershell
-pnpm --filter backend exec prisma db push
+pnpm db:push
 ```
 
 ### Executar seed
 
 ```powershell
-pnpm --filter backend exec prisma db seed
+pnpm db:seed
 ```
 
 ---
@@ -735,7 +708,7 @@ pnpm --filter backend exec prisma db seed
 Com o banco já configurado:
 
 ```powershell
-npm run dev
+pnpm dev
 ```
 
 O processo inicia:
@@ -1088,7 +1061,7 @@ Get-Process prisma -ErrorAction SilentlyContinue | Stop-Process -Force
 Depois:
 
 ```powershell
-pnpm --filter backend exec prisma generate
+pnpm db:generate
 ```
 
 ---
@@ -1118,7 +1091,7 @@ pnpm install
 e:
 
 ```powershell
-pnpm --filter backend exec prisma generate
+pnpm db:generate
 ```
 
 ---
@@ -1172,42 +1145,20 @@ Verifique no terminal do backend se aparece:
 # 42. Estrutura principal do projeto
 
 ```text
-projectBarbearia/
-│
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── seed.ts
-│   │
-│   ├── src/
-│   │   ├── lib/
-│   │   │   └── crypto.ts
-│   │   └── server.ts
-│   │
-│   └── .env
-│
-├── backups/
-│   └── trato_fino_YYYY-MM-DD_HH-MM-SS.dump
-│
-├── database/
-│   └── trato_fino.sql
-│
+trato-fino/
+├── apps/
+│   ├── api/                 # API Express + Prisma
+│   └── cli/                 # interface terminal/CLI
+├── database/                # SQL de inicialização/recuperação preservado
+├── backups/                 # dumps preservados
 ├── docs/
-│
-├── frontend/
-│
 ├── scripts/
-│   ├── setup-postgres.mjs
-│   ├── dev.mjs
-│   ├── backup-postgres.mjs
-│   └── restore-postgres.mjs
-│
+├── .env                     # única configuração runtime local
+├── .env.example             # modelo sanitizado
 ├── docker-compose.yml
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
-├── .env
-├── .env.example
 └── README.md
 ```
 
@@ -1254,25 +1205,25 @@ pnpm db:setup
 ## Gerar Prisma Client
 
 ```powershell
-pnpm --filter backend exec prisma generate
+pnpm db:generate
 ```
 
 ## Aplicar schema
 
 ```powershell
-pnpm --filter backend exec prisma db push
+pnpm db:push
 ```
 
 ## Executar seed
 
 ```powershell
-pnpm --filter backend exec prisma db seed
+pnpm db:seed
 ```
 
 ## Executar aplicação
 
 ```powershell
-npm run dev
+pnpm dev
 ```
 
 ## Parar containers
@@ -1304,7 +1255,7 @@ Esse é o procedimento recomendado para transportar o Trato Fino para outro comp
 Instale:
 
 ```text
-Node.js 20+
+Node.js 20.12+
 pnpm
 Docker Desktop
 ```
@@ -1328,7 +1279,7 @@ dir
 Confirme principalmente que existem:
 
 ```text
-backend\.env
+.env
 backups\*.dump
 docker-compose.yml
 package.json
@@ -1367,7 +1318,7 @@ pnpm restore
 ### 9. Iniciar o sistema
 
 ```powershell
-npm run dev
+pnpm dev
 ```
 
 ### 10. Utilizar o Trato Fino
@@ -1403,7 +1354,7 @@ docker compose up -d
 Depois:
 
 ```powershell
-npm run dev
+pnpm dev
 ```
 
 Não é necessário executar `pnpm restore` a cada inicialização.
@@ -1444,7 +1395,7 @@ docker compose up -d
      ↓
 pnpm restore
      ↓
-npm run dev
+pnpm dev
 ```
 
 ---
@@ -1456,7 +1407,7 @@ O projeto contém informações sensíveis.
 O ZIP pode conter:
 
 ```text
-backend/.env
+.env
 backups/*.dump
 ```
 
@@ -1466,7 +1417,7 @@ Portanto:
 
 * não publique o ZIP no GitHub;
 * não envie o ZIP para locais públicos;
-* não compartilhe o `backend/.env` desnecessariamente;
+* não compartilhe o `.env` desnecessariamente;
 * não compartilhe arquivos `.dump` publicamente;
 * mantenha cópias de backup em local seguro.
 
@@ -1478,12 +1429,12 @@ As chaves criptográficas presentes no `.env` devem ser tratadas como segredos.
 
 Antes de iniciar:
 
-* [ ] Node.js 20+ instalado
+* [ ] Node.js 20.12+ instalado
 * [ ] pnpm instalado
 * [ ] Docker Desktop instalado
 * [ ] Docker Desktop aberto
 * [ ] Projeto descompactado
-* [ ] `backend/.env` presente
+* [ ] `.env` presente
 * [ ] `backups/*.dump` presente
 * [ ] Dependências instaladas
 * [ ] PostgreSQL iniciado
@@ -1540,7 +1491,7 @@ pnpm restore
 Banco restaurado
         │
         ▼
-npm run dev
+pnpm dev
         │
         ▼
 TRATO FINO CLI
@@ -1563,7 +1514,7 @@ docker compose ps
 
 pnpm restore
 
-npm run dev
+pnpm dev
 ```
 
 ### Uso normal
@@ -1571,7 +1522,7 @@ npm run dev
 ```powershell
 docker compose up -d
 
-npm run dev
+pnpm dev
 ```
 
 ### Criar backup

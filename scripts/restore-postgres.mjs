@@ -1,17 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
+import { ROOT_DIR as rootDir } from './load-env.mjs';
 
 const backupsDir = path.join(rootDir, 'backups');
 
 const CONTAINER_NAME = 'trato-fino-postgres';
-const DB_USER = 'trato_fino_app';
-const DB_NAME = 'trato_fino';
+const DB_USER = process.env.POSTGRES_USER;
+const DB_NAME = process.env.POSTGRES_DB;
+if (!DB_USER || !DB_NAME) throw new Error('POSTGRES_USER e POSTGRES_DB devem estar definidos no .env da raiz.');
 
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {

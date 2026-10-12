@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import http from 'node:http';
+import { ROOT_DIR } from './load-env.mjs';
 
 const isWindows = process.platform === 'win32';
 const PNPM = isWindows ? 'pnpm.cmd' : 'pnpm';
@@ -10,6 +11,7 @@ const API_HOST = new URL(API_URL).hostname;
 
 function run(command, args = [], options = {}) {
   const child = spawn(command, args, {
+    cwd: ROOT_DIR,
     stdio: 'inherit',
     shell: isWindows && command.endsWith('.cmd'),
     windowsHide: true,
@@ -195,7 +197,7 @@ async function setupDatabase() {
   console.log('');
   console.log('🛠️ Preparando schema e Prisma...');
 
-  const setup = run(PNPM, ['db:setup']);
+  const setup = run(PNPM, ['db:setup'], { cwd: ROOT_DIR });
   const setupCode = await waitForProcess(setup);
 
   if (setupCode !== 0) {
@@ -204,7 +206,7 @@ async function setupDatabase() {
 
   const generate = run(PNPM, [
     '--dir',
-    'backend',
+    'apps/api',
     'exec',
     'prisma',
     'generate',
@@ -265,7 +267,7 @@ async function main() {
   console.log('');
   console.log('🚀 Iniciando backend...');
 
-  const backend = run(PNPM, ['--dir', 'backend', 'dev'], {
+  const backend = run(PNPM, ['--dir', 'apps/api', 'dev'], {
     stdio: ['ignore', 'inherit', 'inherit'],
   });
 
@@ -303,7 +305,7 @@ async function main() {
 
   console.log('💻 Iniciando terminal CLI...');
 
-  cli = run(PNPM, ['--dir', 'frontend', 'dev'], {
+  cli = run(PNPM, ['--dir', 'apps/cli', 'dev'], {
     env: {
       ...process.env,
       API_URL,

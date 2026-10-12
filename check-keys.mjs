@@ -1,69 +1,31 @@
-import crypto from "node:crypto";
-import fs from "node:fs";
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ROOT_DIR } from './scripts/load-env.mjs';
 
-const sql = fs.readFileSync("./database/trato_fino.sql", "utf8");
+const sqlPath = path.join(ROOT_DIR, 'database', 'trato_fino.sql');
+const sql = fs.readFileSync(sqlPath, 'utf8');
+const match = sql.match(/'v1:([^']+)'/);
+if (!match) throw new Error('Nenhum ciphertext v1 encontrado no SQL.');
 
-const match = sql.match(
-  /'v1:([^']+)'/
-);
+const encodedKey = process.env.PII_ENCRYPTION_KEY;
+if (!encodedKey) throw new Error('PII_ENCRYPTION_KEY não está configurada no .env da raiz.');
+const key = Buffer.from(encodedKey, 'base64url');
+if (key.length !== 32) throw new Error('PII_ENCRYPTION_KEY não decodifica para uma chave de 32 bytes.');
 
-if (!match) {
-  throw new Error("Nenhum ciphertext v1 encontrado no SQL.");
-}
-
-const value = match[1];
-
-const keys = [
-  {
-    nome: "base64url",
-    key: Buffer.from(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "base64url"
-    )
-  },
-  {
-    nome: "hex",
-    key: Buffer.from(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "hex"
-    )
-  },
-  {
-    nome: "utf8",
-    key: Buffer.from(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "utf8"
-    )
-  }
-];
-
-const raw = Buffer.from(value, "base64url");
+const raw = Buffer.from(match[1], 'base64url');
+if (raw.length < 29) throw new Error('Ciphertext v1 inválido ou incompleto.');
 const iv = raw.subarray(0, 12);
 const tag = raw.subarray(12, 28);
 const ciphertext = raw.subarray(28);
-
-for (const item of keys) {
-  try {
-    if (item.key.length !== 32) {
-      console.log(`${item.nome}: ignorada (${item.key.length} bytes)`);
-      continue;
-    }
-
-    const decipher = crypto.createDecipheriv(
-      "aes-256-gcm",
-      item.key,
-      iv
-    );
-
-    decipher.setAuthTag(tag);
-
-    const plaintext = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final()
-    ]).toString("utf8");
-
-    console.log(`${item.nome}: SUCESSO -> ${plaintext}`);
-  } catch {
-    console.log(`${item.nome}: falhou`);
-  }
+try {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  // Decrypt for validation only. Never print or persist the plaintext.
+  decipher.update(ciphertext);
+  decipher.final();
+  console.log('PII_ENCRYPTION_KEY: valida para o ciphertext de referência.');
+} catch {
+  console.error('PII_ENCRYPTION_KEY: não descriptografa o ciphertext de referência.');
+  process.exitCode = 1;
 }

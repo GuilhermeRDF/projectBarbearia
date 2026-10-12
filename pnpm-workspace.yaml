@@ -1,6 +1,7 @@
 packages:
-  - backend
-  - frontend
+  - apps/api
+  - apps/cli
+
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
