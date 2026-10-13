@@ -10,7 +10,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "test": "echo \"No tests configured\""
+    "test": "tsx --test tests/agendamento.test.ts",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status"
   },
   "keywords": [],
   "author": "",

@@ -1,81 +1,80 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AgendamentoService } from '../services/agendamento.service';
+import { intervaloValido } from '../domain/agendamento';
 
 export class AgendamentoController {
-  // Consulta de Horários Livres (Pública para o Cliente)
   static async obterHorariosDisponiveis(req: Request, res: Response) {
     try {
       const { barbeiroId, servicoId, data } = req.query;
-
+      const barbeariaId = req.usuario?.barbeariaId;
+      if (!barbeariaId) return res.status(403).json({ error: 'Barbearia não identificada na sessão' });
       if (!barbeiroId || !servicoId || !data) {
         return res.status(400).json({ error: 'Informe barbeiroId, servicoId e data (YYYY-MM-DD)' });
       }
-
       const horarios = await AgendamentoService.calcularHorariosDisponiveis(
-        String(barbeiroId),
-        String(servicoId),
-        String(data)
+        String(barbeiroId), String(servicoId), String(data),
+        barbeariaId,
       );
-
       return res.json(horarios);
-    } catch (err: any) {
-      return res.status(400).json({ error: err.message });
+    } catch (err) {
+      return res.status(400).json({ error: err instanceof Error ? err.message : 'Erro ao consultar horários' });
     }
   }
 
-  // Criar Agendamento + Abertura de Comanda Automática
   static async criarAgendamento(req: Request, res: Response) {
     try {
-      const usuarioId = req.usuario!.id;
-      const { barbeariaId, barbeiroId, servicoId, dataHora } = req.body;
+      const usuarioId = req.usuario?.id;
+      const { barbeiroId, servicoId, dataHora } = req.body as Record<string, unknown>;
+      const barbeariaId = req.usuario?.barbeariaId;
+      if (!usuarioId || !barbeariaId || typeof barbeiroId !== 'string' ||
+          typeof servicoId !== 'string' || typeof dataHora !== 'string') {
+        return res.status(400).json({ error: 'Dados obrigatórios do agendamento inválidos' });
+      }
+      const inicio = new Date(dataHora);
+      const [servico, barbeiro] = await Promise.all([
+        prisma.servico.findFirst({ where: { id: servicoId, barbeariaId, estaAtivo: true } }),
+        prisma.perfilFuncionario.findFirst({ where: { id: barbeiroId, barbeariaId, estaDisponivel: true } }),
+      ]);
+      if (!servico || !barbeiro) return res.status(404).json({ error: 'Barbeiro ou serviço não encontrado' });
+      const fim = new Date(inicio.getTime() + servico.duracaoMinutos * 60_000);
+      if (!intervaloValido(inicio, fim)) return res.status(400).json({ error: 'Intervalo de agendamento inválido' });
 
-      const servico = await prisma.servico.findUnique({ where: { id: servicoId } });
-      if (!servico) return res.status(404).json({ error: 'Serviço não encontrado' });
-
-      const barbeiro = await prisma.barbeiro.findUnique({ where: { id: barbeiroId } });
-      if (!barbeiro) return res.status(404).json({ error: 'Barbeiro não encontrado' });
-
-      // Transação do Prisma: Cria o Agendamento e abre a Comanda do Financeiro em uma única operação
       const resultado = await prisma.$transaction(async (tx) => {
+        const conflito = await tx.agendamento.findFirst({
+          where: {
+            barbeiroId, barbeariaId, status: { not: 'CANCELADO' },
+            inicioAgendado: { lt: fim }, fimAgendado: { gt: inicio },
+          },
+        });
+        if (conflito) throw new Error('Este barbeiro já possui um atendimento neste horário');
         const agendamento = await tx.agendamento.create({
           data: {
-            barbeariaId,
-            usuarioId,
-            barbeiroId,
-            servicoId,
-            dataHora: new Date(dataHora),
-            status: 'PENDENTE'
-          }
+            barbeariaId, usuarioId, barbeiroId, servicoId,
+            inicioAgendado: inicio, fimAgendado: fim, status: 'PENDENTE',
+            criadoPor: usuarioId,
+          },
         });
-
-        // Comissão base calculada sobre a taxa cadastrada no barbeiro
-        const valorComissao = (servico.preco * barbeiro.comissaoPorcent) / 100;
-
+        await tx.servicoAgendamento.create({
+          data: { agendamentoId: agendamento.id, servicoId, preco: servico.preco, duracaoMinutos: servico.duracaoMinutos },
+        });
+        const comissao = new Prisma.Decimal(servico.preco.toString())
+          .mul(new Prisma.Decimal(barbeiro.comissaoPorcent.toString()))
+          .div(100)
+          .toDecimalPlaces(2);
         const comanda = await tx.comanda.create({
           data: {
-            barbeariaId,
-            usuarioId,
-            agendamentoId: agendamento.id,
-            valorTotal: servico.preco,
+            barbeariaId, usuarioId, agendamentoId: agendamento.id, valorTotal: servico.preco,
             status: 'ABERTA',
-            itens: {
-              create: {
-                servicoId: servico.id,
-                barbeiroId: barbeiro.id,
-                preco: servico.preco,
-                comissao: valorComissao
-              }
-            }
-          }
+            itens: { create: { servicoId, barbeiroId, preco: servico.preco, comissao } },
+          },
         });
-
         return { agendamento, comanda };
       });
-
       return res.status(201).json(resultado);
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+    } catch (err) {
+      return res.status(400).json({ error: err instanceof Error ? err.message : 'Erro ao criar agendamento' });
     }
   }
 }

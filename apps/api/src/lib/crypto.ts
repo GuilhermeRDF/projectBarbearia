@@ -15,9 +15,16 @@ export function encrypt(value: string): string {
   const key = getKey('PII_ENCRYPTION_KEY');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+
+  const ciphertext = Buffer.concat([
+    cipher.update(value, 'utf8'),
+    cipher.final(),
+  ]);
+
   const tag = cipher.getAuthTag();
-  return `v${KEY_VERSION}:${Buffer.concat([iv, tag, ciphertext]).toString('base64url')}`;
+  const payload = Buffer.concat([iv, tag, ciphertext]).toString('base64url');
+
+  return `v${KEY_VERSION}:${payload}`;
 }
 
 export function decrypt(value: string): string {

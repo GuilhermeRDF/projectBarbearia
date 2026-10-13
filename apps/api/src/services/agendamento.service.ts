@@ -1,17 +1,15 @@
 import { prisma } from '../lib/prisma';
+import { intervalosSeSobrepoem } from '../domain/agendamento';
 
 function timeToMinutes(timeStr: string | null | undefined): number {
   if (!timeStr) return 0;
-
   const [hours, minutes] = timeStr.split(':').map(Number);
-
   return hours * 60 + (minutes || 0);
 }
 
 function minutesToTime(minutes: number): string {
   const h = Math.floor(minutes / 60).toString().padStart(2, '0');
   const m = (minutes % 60).toString().padStart(2, '0');
-
   return `${h}:${m}`;
 }
 
@@ -19,19 +17,25 @@ export class AgendamentoService {
   static async calcularHorariosDisponiveis(
     barbeiroId: string,
     servicoId: string,
-    dataStr: string
-  ) {
-    const barbeiro = await prisma.barbeiro.findUnique({
-      where: {
-        id: barbeiroId,
-      },
-    });
-
-    const servico = await prisma.servico.findUnique({
-      where: {
-        id: servicoId,
-      },
-    });
+    dataStr: string,
+    barbeariaId?: string,
+  ): Promise<string[]> {
+    const [barbeiro, servico] = await Promise.all([
+      prisma.perfilFuncionario.findFirst({
+        where: {
+          id: barbeiroId,
+          ...(barbeariaId ? { barbeariaId } : {}),
+          estaDisponivel: true,
+        },
+      }),
+      prisma.servico.findFirst({
+        where: {
+          id: servicoId,
+          ...(barbeariaId ? { barbeariaId } : {}),
+          estaAtivo: true,
+        },
+      }),
+    ]);
 
     if (!barbeiro || !servico) {
       throw new Error('Barbeiro ou serviço não encontrado');
@@ -39,92 +43,37 @@ export class AgendamentoService {
 
     const inicioDia = new Date(`${dataStr}T00:00:00.000Z`);
     const fimDia = new Date(`${dataStr}T23:59:59.999Z`);
-
-    const agendamentosExistentes =
-      await prisma.agendamento.findMany({
-        where: {
-          barbeiroId: barbeiroId,
-
-          status: {
-            not: 'CANCELADO',
-          },
-
-          dataHora: {
-            gte: inicioDia,
-            lte: fimDia,
-          },
-        },
-
-        include: {
-          servico: true,
-        },
-      });
-
-    const intervalosOcupados = agendamentosExistentes.map((agendamento) => {
-      const dataHora = new Date(agendamento.dataHora);
-
-      const inicioMin =
-        dataHora.getUTCHours() * 60 +
-        dataHora.getUTCMinutes();
-
-      const duracao =
-        agendamento.servico?.duracaoMinutos ??
-        servico.duracaoMinutos;
-
-      return {
-        inicio: inicioMin,
-        fim: inicioMin + duracao,
-      };
+    const agendamentos = await prisma.agendamento.findMany({
+      where: {
+        barbeiroId,
+        ...(barbeariaId ? { barbeariaId } : {}),
+        status: { not: 'CANCELADO' },
+        inicioAgendado: { lt: fimDia },
+        fimAgendado: { gt: inicioDia },
+      },
+      select: { inicioAgendado: true, fimAgendado: true },
     });
 
-    const expInicio = timeToMinutes(barbeiro.horarioInicio);
-    const expFim = timeToMinutes(barbeiro.horarioFim);
+    const ocupados = agendamentos.map((a) => ({
+      inicio: a.inicioAgendado.getUTCHours() * 60 + a.inicioAgendado.getUTCMinutes(),
+      fim: a.fimAgendado.getUTCHours() * 60 + a.fimAgendado.getUTCMinutes(),
+    }));
 
-    const almocoInicio = barbeiro.inicioAlmoco
-      ? timeToMinutes(barbeiro.inicioAlmoco)
-      : null;
+    const inicioExpediente = timeToMinutes(barbeiro.horarioInicio);
+    const fimExpediente = timeToMinutes(barbeiro.horarioFim);
+    const almocoInicio = barbeiro.inicioAlmoco ? timeToMinutes(barbeiro.inicioAlmoco) : null;
+    const almocoFim = barbeiro.fimAlmoco ? timeToMinutes(barbeiro.fimAlmoco) : null;
+    const duracao = servico.duracaoMinutos;
+    const horarios: string[] = [];
 
-    const almocoFim = barbeiro.fimAlmoco
-      ? timeToMinutes(barbeiro.fimAlmoco)
-      : null;
-
-    const duracaoServico = servico.duracaoMinutos;
-
-    const intervaloPasso = 30;
-
-    const horariosLivres: string[] = [];
-
-    for (
-      let minutoAtual = expInicio;
-      minutoAtual + duracaoServico <= expFim;
-      minutoAtual += intervaloPasso
-    ) {
-      const slotInicio = minutoAtual;
-      const slotFim = minutoAtual + duracaoServico;
-
-      // Verifica horário de almoço
-      if (almocoInicio !== null && almocoFim !== null) {
-        const conflitaComAlmoco =
-          slotInicio < almocoFim &&
-          slotFim > almocoInicio;
-
-        if (conflitaComAlmoco) {
-          continue;
-        }
-      }
-
-      // Verifica agendamentos existentes
-      const temConflito = intervalosOcupados.some(
-        (ocupado) =>
-          slotInicio < ocupado.fim &&
-          slotFim > ocupado.inicio
-      );
-
-      if (!temConflito) {
-        horariosLivres.push(minutesToTime(slotInicio));
-      }
+    for (let minuto = inicioExpediente; minuto + duracao <= fimExpediente; minuto += 30) {
+      const fim = minuto + duracao;
+      if (almocoInicio !== null && almocoFim !== null &&
+          intervalosSeSobrepoem(minuto, fim, almocoInicio, almocoFim)) continue;
+      if (ocupados.some((o) => intervalosSeSobrepoem(minuto, fim, o.inicio, o.fim))) continue;
+      horarios.push(minutesToTime(minuto));
     }
 
-    return horariosLivres;
+    return horarios;
   }
 }

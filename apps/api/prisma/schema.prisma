@@ -7,37 +7,66 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum RoleUsuario {
+  ADMIN
+  CLIENTE
+}
+
+enum StatusAgendamento {
+  PENDENTE
+  CONFIRMADO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+  NAO_COMPARECEU
+}
+
+enum StatusComanda {
+  ABERTA
+  PAGA
+  CANCELADA
+}
+
+enum StatusPagamento {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  ESTORNADO
+  CANCELADO
+}
+
 model Barbearia {
-  id           String   @id @default(uuid())
-  nome         String
-  slug         String   @unique
-  telefone     String?
-  endereco     String?
-  logoUrl      String?
-  criadoEm     DateTime @default(now())
+  id           String @map("barbearia_id")   @id @default(uuid())
+  nome         String @map("barbearia_nome")
+  slug         String @map("barbearia_slug")   @unique
+  telefone     String? @map("barbearia_telefone")
+  endereco     String? @map("barbearia_endereco")
+  logoUrl      String? @map("barbearia_logo_url")
+  criadoEm     DateTime @map("barbearia_criado_em") @default(now())
 
   usuarios     Usuario[]
   servicos     Servico[]
   barbeiros    PerfilFuncionario[]
   agendamentos Agendamento[]
   comandas     Comanda[]
+  @@map("barbearia")
 }
 
 model Usuario {
-  id                    String   @id @default(uuid())
-  barbeariaId           String?
-  role                  String   @default("CLIENTE")
-  estaAtivo             Boolean  @default(true)
-  eEquipe               Boolean  @default(false)
-  eSuperusuario         Boolean  @default(false)
-  quantidadeFalhasLogin Int      @default(0)
-  bloqueadoAte          DateTime?
-  senhaAlteradaEm       DateTime?
-  ultimoLoginEm         DateTime?
-  excluidoEm            DateTime?
-  anonimizadoEm         DateTime?
-  criadoEm              DateTime @default(now())
-  atualizadoEm          DateTime @updatedAt
+  id                    String @map("usuario_id")   @id @default(uuid())
+  barbeariaId           String? @map("usuario_barbearia_id")
+  role                  RoleUsuario @map("usuario_role") @default(CLIENTE)
+  estaAtivo             Boolean @map("usuario_esta_ativo")  @default(true)
+  eEquipe               Boolean @map("usuario_e_equipe")  @default(false)
+  eSuperusuario         Boolean @map("usuario_e_superusuario")  @default(false)
+  quantidadeFalhasLogin Int @map("usuario_quantidade_falhas_login")      @default(0)
+  bloqueadoAte          DateTime? @map("usuario_bloqueado_ate")
+  senhaAlteradaEm       DateTime? @map("usuario_senha_alterada_em")
+  ultimoLoginEm         DateTime? @map("usuario_ultimo_login_em")
+  excluidoEm            DateTime? @map("usuario_excluido_em")
+  anonimizadoEm         DateTime? @map("usuario_anonimizado_em")
+  criadoEm              DateTime @map("usuario_criado_em") @default(now())
+  atualizadoEm          DateTime @map("usuario_atualizado_em") @updatedAt
 
   barbearia             Barbearia? @relation(fields: [barbeariaId], references: [id], onDelete: SetNull)
   credencial            CredencialUsuario?
@@ -67,61 +96,66 @@ model Usuario {
 
   @@index([barbeariaId])
   @@index([estaAtivo])
+  @@map("usuario")
 }
 
 model CredencialUsuario {
-  id              String   @id @default(uuid())
-  usuarioId       String   @unique
-  hashSenha       String
-  versaoSenha     Int      @default(1)
-  mfaHabilitado   Boolean  @default(false)
-  senhaTemporaria Boolean  @default(false)
-  criadoEm        DateTime @default(now())
-  atualizadoEm    DateTime @updatedAt
+  id              String @map("credencial_usuario_id")   @id @default(uuid())
+  usuarioId       String @map("credencial_usuario_usuario_id")   @unique
+  hashSenha       String @map("credencial_usuario_hash_senha")
+  versaoSenha     Int @map("credencial_usuario_versao_senha")      @default(1)
+  mfaHabilitado   Boolean @map("credencial_usuario_mfa_habilitado")  @default(false)
+  senhaTemporaria Boolean @map("credencial_usuario_senha_temporaria")  @default(false)
+  criadoEm        DateTime @map("credencial_usuario_criado_em") @default(now())
+  atualizadoEm    DateTime @map("credencial_usuario_atualizado_em") @updatedAt
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  @@map("credencial_usuario")
 }
 
 model DadosPessoaisUsuario {
-  id                       String   @id @default(uuid())
-  usuarioId                String   @unique
-  nomeCompletoCriptografado String
-  cpfCriptografado         String
-  hashBuscaCpf             String   @unique
-  emailCriptografado       String
-  hashBuscaEmail           String   @unique
-  telefoneCriptografado    String?
-  hashBuscaTelefone        String?
-  versaoChaveCriptografia  Int      @default(1)
-  criadoEm                 DateTime @default(now())
-  atualizadoEm             DateTime @updatedAt
+  id                       String @map("dados_pessoais_usuario_id")   @id @default(uuid())
+  usuarioId                String @map("dados_pessoais_usuario_usuario_id")   @unique
+  nomeCompletoCriptografado String @map("dados_pessoais_usuario_nome_completo_criptografado")
+  cpfCriptografado         String @map("dados_pessoais_usuario_cpf_criptografado")
+  hashBuscaCpf             String @map("dados_pessoais_usuario_hash_busca_cpf")   @unique
+  emailCriptografado       String @map("dados_pessoais_usuario_email_criptografado")
+  hashBuscaEmail           String @map("dados_pessoais_usuario_hash_busca_email")   @unique
+  telefoneCriptografado    String? @map("dados_pessoais_usuario_telefone_criptografado")
+  hashBuscaTelefone        String? @map("dados_pessoais_usuario_hash_busca_telefone")
+  versaoChaveCriptografia  Int @map("dados_pessoais_usuario_versao_chave_criptografia")      @default(1)
+  criadoEm                 DateTime @map("dados_pessoais_usuario_criado_em") @default(now())
+  atualizadoEm             DateTime @map("dados_pessoais_usuario_atualizado_em") @updatedAt
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  @@map("dados_pessoais_usuario")
 }
 
 model PerfilAcesso {
-  id          String @id @default(uuid())
-  codigo      String @unique
-  nome        String
-  descricao   String?
-  eSistema    Boolean @default(true)
+  id          String @map("perfil_acesso_id") @id @default(uuid())
+  codigo      String @map("perfil_acesso_codigo") @unique
+  nome        String @map("perfil_acesso_nome")
+  descricao   String? @map("perfil_acesso_descricao")
+  eSistema    Boolean @map("perfil_acesso_e_sistema") @default(true)
   usuarios    UsuarioPerfil[]
   permissoes  PerfilPermissao[]
+  @@map("perfil_acesso")
 }
 
 model Permissao {
-  id          String @id @default(uuid())
-  codigo      String @unique
-  descricao   String?
+  id          String @map("permissao_id") @id @default(uuid())
+  codigo      String @map("permissao_codigo") @unique
+  descricao   String? @map("permissao_descricao")
   perfis      PerfilPermissao[]
+  @@map("permissao")
 }
 
 model UsuarioPerfil {
-  id          String   @id @default(uuid())
-  usuarioId   String
-  perfilId    String
-  atribuidoPor String?
-  atribuidoEm DateTime @default(now())
+  id          String @map("usuario_perfil_id")   @id @default(uuid())
+  usuarioId   String @map("usuario_perfil_usuario_id")
+  perfilId    String @map("usuario_perfil_perfil_id")
+  atribuidoPor String? @map("usuario_perfil_atribuido_por")
+  atribuidoEm DateTime @map("usuario_perfil_atribuido_em") @default(now())
 
   usuario      Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   perfil       PerfilAcesso @relation(fields: [perfilId], references: [id], onDelete: Cascade)
@@ -130,45 +164,48 @@ model UsuarioPerfil {
   @@unique([usuarioId, perfilId])
   @@index([usuarioId])
   @@index([perfilId])
+  @@map("usuario_perfil")
 }
 
 model PerfilPermissao {
-  id          String @id @default(uuid())
-  perfilId    String
-  permissaoId String
+  id          String @map("perfil_permissao_id") @id @default(uuid())
+  perfilId    String @map("perfil_permissao_perfil_id")
+  permissaoId String @map("perfil_permissao_permissao_id")
 
   perfil      PerfilAcesso @relation(fields: [perfilId], references: [id], onDelete: Cascade)
   permissao   Permissao @relation(fields: [permissaoId], references: [id], onDelete: Cascade)
 
   @@unique([perfilId, permissaoId])
+  @@map("perfil_permissao")
 }
 
 model PerfilCliente {
-  id                    String @id @default(uuid())
-  usuarioId             String @unique
-  observacoesOperacionais String?
-  criadoEm              DateTime @default(now())
-  atualizadoEm          DateTime @updatedAt
+  id                    String @map("perfil_cliente_id") @id @default(uuid())
+  usuarioId             String @map("perfil_cliente_usuario_id") @unique
+  observacoesOperacionais String? @map("perfil_cliente_observacoes_operacionais")
+  criadoEm              DateTime @map("perfil_cliente_criado_em") @default(now())
+  atualizadoEm          DateTime @map("perfil_cliente_atualizado_em") @updatedAt
   usuario               Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  @@map("perfil_cliente")
 }
 
 model PerfilFuncionario {
-  id                    String @id @default(uuid())
-  usuarioId             String @unique
-  barbeariaId           String
-  nomeExibicao          String?
-  bio                   String?
-  urlFoto               String?
-  dataAdmissao          DateTime?
-  estaDisponivel        Boolean @default(true)
-  especialidade         String?
-  horarioInicio         String @default("08:00")
-  horarioFim            String @default("18:00")
-  inicioAlmoco          String?
-  fimAlmoco             String?
-  comissaoPorcent       Float @default(30)
-  criadoEm              DateTime @default(now())
-  atualizadoEm          DateTime @updatedAt
+  id                    String @map("perfil_funcionario_id") @id @default(uuid())
+  usuarioId             String @map("perfil_funcionario_usuario_id") @unique
+  barbeariaId           String @map("perfil_funcionario_barbearia_id")
+  nomeExibicao          String? @map("perfil_funcionario_nome_exibicao")
+  bio                   String? @map("perfil_funcionario_bio")
+  urlFoto               String? @map("perfil_funcionario_url_foto")
+  dataAdmissao          DateTime? @map("perfil_funcionario_data_admissao")
+  estaDisponivel        Boolean @map("perfil_funcionario_esta_disponivel") @default(true)
+  especialidade         String? @map("perfil_funcionario_especialidade")
+  horarioInicio         String @map("perfil_funcionario_horario_inicio") @default("08:00")
+  horarioFim            String @map("perfil_funcionario_horario_fim") @default("18:00")
+  inicioAlmoco          String? @map("perfil_funcionario_inicio_almoco")
+  fimAlmoco             String? @map("perfil_funcionario_fim_almoco")
+  comissaoPorcent       Decimal @map("perfil_funcionario_comissao_porcent") @default(30) @db.Decimal(5, 2)
+  criadoEm              DateTime @map("perfil_funcionario_criado_em") @default(now())
+  atualizadoEm          DateTime @map("perfil_funcionario_atualizado_em") @updatedAt
 
   usuario               Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   barbearia             Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
@@ -182,65 +219,69 @@ model PerfilFuncionario {
   historicosBarbeiroNovo HistoricoAgendamento[] @relation("BarbeiroNovo")
 
   @@index([barbeariaId])
+  @@map("perfil_funcionario")
 }
 
 model SessaoAutenticacao {
-  id                String   @id @default(uuid())
-  usuarioId         String
-  hashToken         String   @unique
-  hashIdDispositivo String?
-  enderecoIp        String?
-  agenteUsuario     String?
-  emitidoEm         DateTime @default(now())
-  expiraEm          DateTime
-  revogadoEm        DateTime?
-  motivoRevogacao   String?
+  id                String @map("sessao_autenticacao_id")   @id @default(uuid())
+  usuarioId         String @map("sessao_autenticacao_usuario_id")
+  hashToken         String @map("sessao_autenticacao_hash_token")   @unique
+  hashIdDispositivo String? @map("sessao_autenticacao_hash_id_dispositivo")
+  enderecoIp        String? @map("sessao_autenticacao_endereco_ip")
+  agenteUsuario     String? @map("sessao_autenticacao_agente_usuario")
+  emitidoEm         DateTime @map("sessao_autenticacao_emitido_em") @default(now())
+  expiraEm          DateTime @map("sessao_autenticacao_expira_em")
+  revogadoEm        DateTime? @map("sessao_autenticacao_revogado_em")
+  motivoRevogacao   String? @map("sessao_autenticacao_motivo_revogacao")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([usuarioId])
   @@index([expiraEm])
+  @@map("sessao_autenticacao")
 }
 
 model TokenRedefinicaoSenha {
-  id             String   @id @default(uuid())
-  usuarioId      String
-  hashToken      String   @unique
-  expiraEm       DateTime
-  usadoEm        DateTime?
-  ipSolicitacao  String?
-  criadoEm       DateTime @default(now())
+  id             String @map("token_redefinicao_senha_id")   @id @default(uuid())
+  usuarioId      String @map("token_redefinicao_senha_usuario_id")
+  hashToken      String @map("token_redefinicao_senha_hash_token")   @unique
+  expiraEm       DateTime @map("token_redefinicao_senha_expira_em")
+  usadoEm        DateTime? @map("token_redefinicao_senha_usado_em")
+  ipSolicitacao  String? @map("token_redefinicao_senha_ip_solicitacao")
+  criadoEm       DateTime @map("token_redefinicao_senha_criado_em") @default(now())
   usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([usuarioId])
   @@index([expiraEm])
+  @@map("token_redefinicao_senha")
 }
 
 model TentativaLogin {
-  id                    String   @id @default(uuid())
-  usuarioId             String?
-  hashBuscaIdentificador String
-  foiBemSucedida        Boolean
-  enderecoIp            String?
-  agenteUsuario         String?
-  criadoEm              DateTime @default(now())
+  id                    String @map("tentativa_login_id")   @id @default(uuid())
+  usuarioId             String? @map("tentativa_login_usuario_id")
+  hashBuscaIdentificador String @map("tentativa_login_hash_busca_identificador")
+  foiBemSucedida        Boolean @map("tentativa_login_foi_bem_sucedida")
+  enderecoIp            String? @map("tentativa_login_endereco_ip")
+  agenteUsuario         String? @map("tentativa_login_agente_usuario")
+  criadoEm              DateTime @map("tentativa_login_criado_em") @default(now())
   usuario               Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId])
   @@index([hashBuscaIdentificador])
   @@index([criadoEm])
+  @@map("tentativa_login")
 }
 
 model Servico {
-  id             String   @id @default(uuid())
-  barbeariaId    String
-  nome           String
-  descricao      String?
-  preco          Float
-  duracaoMinutos Int
-  estaAtivo      Boolean @default(true)
-  criadoEm       DateTime @default(now())
-  atualizadoEm   DateTime @updatedAt
+  id             String @map("servico_id")   @id @default(uuid())
+  barbeariaId    String @map("servico_barbearia_id")
+  nome           String @map("servico_nome")
+  descricao      String? @map("servico_descricao")
+  preco          Decimal @map("servico_preco")  @db.Decimal(10, 2)
+  duracaoMinutos Int @map("servico_duracao_minutos")
+  estaAtivo      Boolean @map("servico_esta_ativo") @default(true)
+  criadoEm       DateTime @map("servico_criado_em") @default(now())
+  atualizadoEm   DateTime @map("servico_atualizado_em") @updatedAt
 
   barbearia      Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   barbeiros      ServicoBarbeiro[]
@@ -251,70 +292,73 @@ model Servico {
   @@index([estaAtivo])
   @@index([nome])
   @@index([barbeariaId])
+  @@map("servico")
 }
 
 model ServicoBarbeiro {
-  id                       String @id @default(uuid())
-  barbeiroId               String
-  servicoId                String
-  precoPersonalizado       Float?
-  duracaoPersonalizadaMinutos Int?
-  estaAtivo                Boolean @default(true)
+  id                       String @map("servico_barbeiro_id") @id @default(uuid())
+  barbeiroId               String @map("servico_barbeiro_barbeiro_id")
+  servicoId                String @map("servico_barbeiro_servico_id")
+  precoPersonalizado       Decimal? @map("servico_barbeiro_preco_personalizado") @db.Decimal(10, 2)
+  duracaoPersonalizadaMinutos Int? @map("servico_barbeiro_duracao_personalizada_minutos")
+  estaAtivo                Boolean @map("servico_barbeiro_esta_ativo") @default(true)
 
   barbeiro PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
   servico  Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 
   @@unique([barbeiroId, servicoId])
+  @@map("servico_barbeiro")
 }
 
 model HorarioTrabalho {
-  id           String @id @default(uuid())
-  barbeiroId   String
-  diaSemana    Int
-  horaInicio   String
-  horaFim      String
-  validoDesde  DateTime?
-  validoAte    DateTime?
-  estaAtivo    Boolean @default(true)
+  id           String @map("horario_trabalho_id") @id @default(uuid())
+  barbeiroId   String @map("horario_trabalho_barbeiro_id")
+  diaSemana    Int @map("horario_trabalho_dia_semana")
+  horaInicio   String @map("horario_trabalho_hora_inicio")
+  horaFim      String @map("horario_trabalho_hora_fim")
+  validoDesde  DateTime? @map("horario_trabalho_valido_desde")
+  validoAte    DateTime? @map("horario_trabalho_valido_ate")
+  estaAtivo    Boolean @map("horario_trabalho_esta_ativo") @default(true)
   barbeiro     PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
 
   @@index([barbeiroId, diaSemana])
+  @@map("horario_trabalho")
 }
 
 model BloqueioAgenda {
-  id          String @id @default(uuid())
-  barbeiroId  String
-  inicioEm    DateTime
-  fimEm       DateTime
-  motivo      String?
-  criadoPor   String
-  criadoEm    DateTime @default(now())
+  id          String @map("bloqueio_agenda_id") @id @default(uuid())
+  barbeiroId  String @map("bloqueio_agenda_barbeiro_id")
+  inicioEm    DateTime @map("bloqueio_agenda_inicio_em")
+  fimEm       DateTime @map("bloqueio_agenda_fim_em")
+  motivo      String? @map("bloqueio_agenda_motivo")
+  criadoPor   String @map("bloqueio_agenda_criado_por")
+  criadoEm    DateTime @map("bloqueio_agenda_criado_em") @default(now())
   barbeiro    PerfilFuncionario @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
   criador     Usuario @relation("CriadorBloqueio", fields: [criadoPor], references: [id], onDelete: Restrict)
 
   @@index([barbeiroId, inicioEm, fimEm])
+  @@map("bloqueio_agenda")
 }
 
 model Agendamento {
-  id                 String @id @default(uuid())
-  barbeariaId        String
-  codigoConfirmacao  String @unique @default(uuid())
-  usuarioId          String
-  barbeiroId         String
-  servicoId          String
-  inicioAgendado     DateTime
-  fimAgendado        DateTime
-  dataHora           DateTime
-  status             String @default("PENDENTE")
-  origem             String @default("TERMINAL")
-  criadoPor          String
-  confirmadoEm       DateTime?
-  canceladoEm        DateTime?
-  motivoCancelamento String?
-  observacaoLegado   String?
-  versaoRegistro     Int @default(1)
-  criadoEm           DateTime @default(now())
-  atualizadoEm       DateTime @updatedAt
+  id                 String @map("agendamento_id") @id @default(uuid())
+  barbeariaId        String @map("agendamento_barbearia_id")
+  codigoConfirmacao  String @map("agendamento_codigo_confirmacao") @unique @default(uuid())
+  usuarioId          String @map("agendamento_usuario_id")
+  barbeiroId         String @map("agendamento_barbeiro_id")
+  servicoId          String @map("agendamento_servico_id")
+  inicioAgendado     DateTime @map("agendamento_inicio_agendado")
+  fimAgendado        DateTime @map("agendamento_fim_agendado")
+  status             StatusAgendamento @map("agendamento_status") @default(PENDENTE)
+  origem             String @map("agendamento_origem") @default("TERMINAL")
+  criadoPor          String @map("agendamento_criado_por")
+  confirmadoEm       DateTime? @map("agendamento_confirmado_em")
+  canceladoEm        DateTime? @map("agendamento_cancelado_em")
+  motivoCancelamento String? @map("agendamento_motivo_cancelamento")
+  observacaoLegado   String? @map("agendamento_observacao_legado")
+  versaoRegistro     Int @map("agendamento_versao_registro") @default(1)
+  criadoEm           DateTime @map("agendamento_criado_em") @default(now())
+  atualizadoEm       DateTime @map("agendamento_atualizado_em") @updatedAt
 
   barbearia          Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   usuario            Usuario @relation("ClienteAgendamento", fields: [usuarioId], references: [id], onDelete: Restrict)
@@ -335,34 +379,36 @@ model Agendamento {
   @@index([status])
   @@index([inicioAgendado])
   @@index([barbeiroId, inicioAgendado, fimAgendado])
+  @@map("agendamento")
 }
 
 model ServicoAgendamento {
-  id              String @id @default(uuid())
-  agendamentoId   String
-  servicoId       String
-  preco           Float
-  duracaoMinutos  Int
+  id              String @map("servico_agendamento_id") @id @default(uuid())
+  agendamentoId   String @map("servico_agendamento_agendamento_id")
+  servicoId       String @map("servico_agendamento_servico_id")
+  preco           Decimal @map("servico_agendamento_preco") @db.Decimal(10, 2)
+  duracaoMinutos  Int @map("servico_agendamento_duracao_minutos")
 
   agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
   servico     Servico @relation(fields: [servicoId], references: [id], onDelete: Restrict)
 
   @@unique([agendamentoId, servicoId])
+  @@map("servico_agendamento")
 }
 
 model HistoricoAgendamento {
-  id                 String @id @default(uuid())
-  agendamentoId      String
-  alteradoPor        String
-  acao               String
-  inicioAnterior     DateTime?
-  novoInicio         DateTime?
-  barbeiroAnteriorId String?
-  novoBarbeiroId     String?
-  statusAnterior     String?
-  novoStatus         String?
-  motivo             String?
-  criadoEm           DateTime @default(now())
+  id                 String @map("historico_agendamento_id") @id @default(uuid())
+  agendamentoId      String @map("historico_agendamento_agendamento_id")
+  alteradoPor        String @map("historico_agendamento_alterado_por")
+  acao               String @map("historico_agendamento_acao")
+  inicioAnterior     DateTime? @map("historico_agendamento_inicio_anterior")
+  novoInicio         DateTime? @map("historico_agendamento_novo_inicio")
+  barbeiroAnteriorId String? @map("historico_agendamento_barbeiro_anterior_id")
+  novoBarbeiroId     String? @map("historico_agendamento_novo_barbeiro_id")
+  statusAnterior     String? @map("historico_agendamento_status_anterior")
+  novoStatus         String? @map("historico_agendamento_novo_status")
+  motivo             String? @map("historico_agendamento_motivo")
+  criadoEm           DateTime @map("historico_agendamento_criado_em") @default(now())
 
   agendamento         Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
   alteradoPorUsuario  Usuario @relation("AlteradoPorHistorico", fields: [alteradoPor], references: [id], onDelete: Restrict)
@@ -371,38 +417,40 @@ model HistoricoAgendamento {
 
   @@index([agendamentoId])
   @@index([criadoEm])
+  @@map("historico_agendamento")
 }
 
 model ObservacaoAgendamento {
-  id                       String @id @default(uuid())
-  agendamentoId            String
-  autorId                  String
-  observacaoCriptografada  String
-  versaoChaveCriptografia  Int @default(1)
-  criadoEm                 DateTime @default(now())
+  id                       String @map("observacao_agendamento_id") @id @default(uuid())
+  agendamentoId            String @map("observacao_agendamento_agendamento_id")
+  autorId                  String @map("observacao_agendamento_autor_id")
+  observacaoCriptografada  String @map("observacao_agendamento_observacao_criptografada")
+  versaoChaveCriptografia  Int @map("observacao_agendamento_versao_chave_criptografia") @default(1)
+  criadoEm                 DateTime @map("observacao_agendamento_criado_em") @default(now())
 
   agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
   autor       Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  @@map("observacao_agendamento")
 }
 
 model Notificacao {
-  id                       String @id @default(uuid())
-  usuarioId                String
-  agendamentoId            String?
-  canal                    String
-  tipo                     String
-  provedor                 String?
-  idMensagemProvedor       String?
-  status                   String @default("PENDENTE")
-  conteudoCriptografado    String?
-  respostaCriptografada    String?
-  versaoChaveCriptografia  Int @default(1)
-  enviadoEm                DateTime?
-  entregueEm               DateTime?
-  lidoEm                   DateTime?
-  falhouEm                 DateTime?
-  respondidoEm             DateTime?
-  criadoEm                 DateTime @default(now())
+  id                       String @map("notificacao_id") @id @default(uuid())
+  usuarioId                String @map("notificacao_usuario_id")
+  agendamentoId            String? @map("notificacao_agendamento_id")
+  canal                    String @map("notificacao_canal")
+  tipo                     String @map("notificacao_tipo")
+  provedor                 String? @map("notificacao_provedor")
+  idMensagemProvedor       String? @map("notificacao_id_mensagem_provedor")
+  status                   String @map("notificacao_status") @default("PENDENTE")
+  conteudoCriptografado    String? @map("notificacao_conteudo_criptografado")
+  respostaCriptografada    String? @map("notificacao_resposta_criptografada")
+  versaoChaveCriptografia  Int @map("notificacao_versao_chave_criptografia") @default(1)
+  enviadoEm                DateTime? @map("notificacao_enviado_em")
+  entregueEm               DateTime? @map("notificacao_entregue_em")
+  lidoEm                   DateTime? @map("notificacao_lido_em")
+  falhouEm                 DateTime? @map("notificacao_falhou_em")
+  respondidoEm             DateTime? @map("notificacao_respondido_em")
+  criadoEm                 DateTime @map("notificacao_criado_em") @default(now())
 
   usuario      Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   agendamento  Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
@@ -411,22 +459,23 @@ model Notificacao {
   @@index([agendamentoId])
   @@index([status])
   @@index([criadoEm])
+  @@map("notificacao")
 }
 
 model LogAuditoria {
-  id                 String @id @default(uuid())
-  usuarioAtorId      String?
-  tipoEvento         String
-  tipoEntidade       String
-  entidadeId         String?
-  resultado          String
-  enderecoIp         String?
-  agenteUsuario      String?
-  requisicaoId       String?
-  metadados          String?
-  hashEventoAnterior String?
-  hashEvento         String?
-  criadoEm           DateTime @default(now())
+  id                 String @map("log_auditoria_id") @id @default(uuid())
+  usuarioAtorId      String? @map("log_auditoria_usuario_ator_id")
+  tipoEvento         String @map("log_auditoria_tipo_evento")
+  tipoEntidade       String @map("log_auditoria_tipo_entidade")
+  entidadeId         String? @map("log_auditoria_entidade_id")
+  resultado          String @map("log_auditoria_resultado")
+  enderecoIp         String? @map("log_auditoria_endereco_ip")
+  agenteUsuario      String? @map("log_auditoria_agente_usuario")
+  requisicaoId       String? @map("log_auditoria_requisicao_id")
+  metadados          String? @map("log_auditoria_metadados")
+  hashEventoAnterior String? @map("log_auditoria_hash_evento_anterior")
+  hashEvento         String? @map("log_auditoria_hash_evento")
+  criadoEm           DateTime @map("log_auditoria_criado_em") @default(now())
 
   ator Usuario? @relation("AtorAuditoria", fields: [usuarioAtorId], references: [id], onDelete: SetNull)
 
@@ -436,50 +485,53 @@ model LogAuditoria {
   @@index([tipoEvento])
   @@index([criadoEm])
   @@index([requisicaoId])
+  @@map("log_auditoria")
 }
 
 model LogAcessoDadoSensivel {
-  id              String @id @default(uuid())
-  usuarioAtorId   String
-  usuarioTitularId String
-  categoriaDado   String
-  finalidade      String
-  acao            String
-  requisicaoId    String?
-  criadoEm        DateTime @default(now())
+  id              String @map("log_acesso_dado_sensivel_id") @id @default(uuid())
+  usuarioAtorId   String @map("log_acesso_dado_sensivel_usuario_ator_id")
+  usuarioTitularId String @map("log_acesso_dado_sensivel_usuario_titular_id")
+  categoriaDado   String @map("log_acesso_dado_sensivel_categoria_dado")
+  finalidade      String @map("log_acesso_dado_sensivel_finalidade")
+  acao            String @map("log_acesso_dado_sensivel_acao")
+  requisicaoId    String? @map("log_acesso_dado_sensivel_requisicao_id")
+  criadoEm        DateTime @map("log_acesso_dado_sensivel_criado_em") @default(now())
 
-  ator     Usuario @relation("AtorDadoSensivel", fields: [usuarioAtorId], references: [id], onDelete: Restrict)
-  titular  Usuario @relation("TitularDadoSensivel", fields: [usuarioTitularId], references: [id], onDelete: Restrict)
+ator    Usuario @relation("AtorDadoSensivel", fields: [usuarioAtorId], references: [id], onDelete: Restrict, map: "log_dado_sensivel_ator_fkey")
+titular Usuario @relation("TitularDadoSensivel", fields: [usuarioTitularId], references: [id], onDelete: Restrict, map: "log_dado_sensivel_titular_fkey")
 
   @@index([usuarioAtorId])
   @@index([usuarioTitularId])
   @@index([criadoEm])
+  @@map("log_acesso_dado_sensivel")
 }
 
 model ConsentimentoPrivacidade {
-  id              String @id @default(uuid())
-  usuarioId       String
-  codigoFinalidade String
-  versao          String
-  concedido       Boolean
-  registradoEm    DateTime @default(now())
-  revogadoEm     DateTime?
-  evidencia       String?
+  id              String @map("consentimento_privacidade_id") @id @default(uuid())
+  usuarioId       String @map("consentimento_privacidade_usuario_id")
+  codigoFinalidade String @map("consentimento_privacidade_codigo_finalidade")
+  versao          String @map("consentimento_privacidade_versao")
+  concedido       Boolean @map("consentimento_privacidade_concedido")
+  registradoEm    DateTime @map("consentimento_privacidade_registrado_em") @default(now())
+  revogadoEm     DateTime? @map("consentimento_privacidade_revogado_em")
+  evidencia       String? @map("consentimento_privacidade_evidencia")
   usuario         Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([usuarioId, codigoFinalidade, versao])
+  @@map("consentimento_privacidade")
 }
 
 model SolicitacaoPrivacidade {
-  id           String @id @default(uuid())
-  usuarioId    String
-  tipo         String
-  status       String @default("ABERTA")
-  abertoEm     DateTime @default(now())
-  prazoEm      DateTime?
-  concluidoEm  DateTime?
-  tratadoPor   String?
-  observacoes  String?
+  id           String @map("solicitacao_privacidade_id") @id @default(uuid())
+  usuarioId    String @map("solicitacao_privacidade_usuario_id")
+  tipo         String @map("solicitacao_privacidade_tipo")
+  status       String @map("solicitacao_privacidade_status") @default("ABERTA")
+  abertoEm     DateTime @map("solicitacao_privacidade_aberto_em") @default(now())
+  prazoEm      DateTime? @map("solicitacao_privacidade_prazo_em")
+  concluidoEm  DateTime? @map("solicitacao_privacidade_concluido_em")
+  tratadoPor   String? @map("solicitacao_privacidade_tratado_por")
+  observacoes  String? @map("solicitacao_privacidade_observacoes")
 
   usuario      Usuario @relation("TitularSolicitacao", fields: [usuarioId], references: [id], onDelete: Cascade)
   tratador     Usuario? @relation("TratadorSolicitacao", fields: [tratadoPor], references: [id], onDelete: SetNull)
@@ -487,46 +539,49 @@ model SolicitacaoPrivacidade {
   @@index([usuarioId])
   @@index([status])
   @@index([abertoEm])
+  @@map("solicitacao_privacidade")
 }
 
 model PoliticaRetencaoDados {
-  id                     String @id @default(uuid())
-  categoriaDado          String @unique
-  diasRetencao           Int?
-  baseLegal              String?
-  anonimizarAposExpiracao Boolean @default(true)
-  descricao              String?
-  atualizadoEm           DateTime @updatedAt
+  id                     String @map("politica_retencao_dados_id") @id @default(uuid())
+  categoriaDado          String @map("politica_retencao_dados_categoria_dado") @unique
+  diasRetencao           Int? @map("politica_retencao_dados_dias_retencao")
+  baseLegal              String? @map("politica_retencao_dados_base_legal")
+  anonimizarAposExpiracao Boolean @map("politica_retencao_dados_anonimizar_apos_expiracao") @default(true)
+  descricao              String? @map("politica_retencao_dados_descricao")
+  atualizadoEm           DateTime @map("politica_retencao_dados_atualizado_em") @updatedAt
+  @@map("politica_retencao_dados")
 }
 
 model Pagamento {
-  id                    String @id @default(uuid())
-  agendamentoId         String?
-  clienteId             String
-  valor                 Float
-  status                String @default("PENDENTE")
-  metodo                String?
-  provedor              String?
-  idTransacaoProvedor   String?
-  pagoEm                DateTime?
-  criadoEm              DateTime @default(now())
-  atualizadoEm          DateTime @updatedAt
+  id                    String @map("pagamento_id") @id @default(uuid())
+  agendamentoId         String? @map("pagamento_agendamento_id")
+  clienteId             String @map("pagamento_cliente_id")
+  valor                 Decimal @map("pagamento_valor") @db.Decimal(10, 2)
+  status                StatusPagamento @map("pagamento_status") @default(PENDENTE)
+  metodo                String? @map("pagamento_metodo")
+  provedor              String? @map("pagamento_provedor")
+  idTransacaoProvedor   String? @map("pagamento_id_transacao_provedor")
+  pagoEm                DateTime? @map("pagamento_pago_em")
+  criadoEm              DateTime @map("pagamento_criado_em") @default(now())
+  atualizadoEm          DateTime @map("pagamento_atualizado_em") @updatedAt
 
   agendamento Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
   cliente     Usuario @relation(fields: [clienteId], references: [id], onDelete: Restrict)
 
   @@index([clienteId])
   @@index([agendamentoId])
+  @@map("pagamento")
 }
 
 model Avaliacao {
-  id            String @id @default(uuid())
-  agendamentoId String @unique
-  clienteId     String
-  barbeiroId    String
-  nota          Int
-  comentario    String?
-  criadoEm      DateTime @default(now())
+  id            String @map("avaliacao_id") @id @default(uuid())
+  agendamentoId String @map("avaliacao_agendamento_id") @unique
+  clienteId     String @map("avaliacao_cliente_id")
+  barbeiroId    String @map("avaliacao_barbeiro_id")
+  nota          Int @map("avaliacao_nota")
+  comentario    String? @map("avaliacao_comentario")
+  criadoEm      DateTime @map("avaliacao_criado_em") @default(now())
 
   agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
   cliente     Usuario @relation("ClienteAvaliacao", fields: [clienteId], references: [id], onDelete: Restrict)
@@ -534,17 +589,18 @@ model Avaliacao {
 
   @@index([clienteId])
   @@index([barbeiroId])
+  @@map("avaliacao")
 }
 
 model Comanda {
-  id            String   @id @default(uuid())
-  barbeariaId   String
-  usuarioId     String
-  agendamentoId String? @unique
-  valorTotal    Float    @default(0)
-  status        String   @default("ABERTA")
-  formaPagto    String?
-  criadoEm      DateTime @default(now())
+  id            String @map("comanda_id")   @id @default(uuid())
+  barbeariaId   String @map("comanda_barbearia_id")
+  usuarioId     String @map("comanda_usuario_id")
+  agendamentoId String? @map("comanda_agendamento_id") @unique
+  valorTotal    Decimal @map("comanda_valor_total")  @default(0) @db.Decimal(10, 2)
+  status        StatusComanda @map("comanda_status") @default(ABERTA)
+  formaPagto    String? @map("comanda_forma_pagto")
+  criadoEm      DateTime @map("comanda_criado_em") @default(now())
 
   barbearia     Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   usuario       Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
@@ -552,17 +608,19 @@ model Comanda {
   itens         ItemComanda[]
 
   @@index([barbeariaId])
+  @@map("comanda")
 }
 
 model ItemComanda {
-  id         String @id @default(uuid())
-  comandaId  String
-  servicoId  String?
-  barbeiroId String?
-  preco      Float
-  comissao   Float
+  id         String @map("item_comanda_id") @id @default(uuid())
+  comandaId  String @map("item_comanda_comanda_id")
+  servicoId  String? @map("item_comanda_servico_id")
+  barbeiroId String? @map("item_comanda_barbeiro_id")
+  preco      Decimal @map("item_comanda_preco") @db.Decimal(10, 2)
+  comissao   Decimal @map("item_comanda_comissao") @db.Decimal(10, 2)
 
   comanda    Comanda @relation(fields: [comandaId], references: [id], onDelete: Cascade)
   servico    Servico? @relation(fields: [servicoId], references: [id], onDelete: SetNull)
   barbeiro   PerfilFuncionario? @relation(fields: [barbeiroId], references: [id], onDelete: SetNull)
+  @@map("item_comanda")
 }
