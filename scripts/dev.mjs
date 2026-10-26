@@ -111,7 +111,6 @@ async function ensureDocker() {
       await runCommand(DOCKER, ['desktop', 'start'], 30000);
     } catch {
       // Algumas versões do Docker Desktop não oferecem esse comando.
-      // Nesse caso, tentamos iniciar pelo executável do Windows.
       try {
         await runCommand(
           'powershell.exe',
